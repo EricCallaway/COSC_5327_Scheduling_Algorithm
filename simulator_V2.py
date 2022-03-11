@@ -23,10 +23,6 @@ def main():
     # Return number of processes and list of the processes
     num_processes, list_of_processes = read_file(file_path)
     pre_priority(num_processes, list_of_processes)
-    
-    
-
-
 
 # Reads the file and enumerates the lines. 
 def read_file(file_path):
@@ -36,7 +32,7 @@ def read_file(file_path):
             for index, line in enumerate(data):
                 if index == 0:
                     num_processes = int(line)
-                else:
+                elif index < 101:
                     p_id = int(index)
                     arrive = int(line[:1])
                     priority = int(line[2:3])
@@ -46,6 +42,9 @@ def read_file(file_path):
                     cpu_time2 = cpu_time
                     state = 0
                     process_data.append([p_id, arrive, priority, cpu_time, state, cpu_time2])
+                else:
+                    sys.exit("Sorry. The limit is 100 processes.\nPlease try again with 100 or less processes.")
+                    break
                 print("Line {}: {}". format(index, line.strip()))
     except FileNotFoundError:
         process_data = None
@@ -58,10 +57,12 @@ def pre_priority(num_pprocesses, process_data):
     s_time = 0
     sequence_of_process = []
     process_data.sort(key=lambda x: x[1])
+    Quant = 2
+    ans = input("Note that in the event of Round Robin scheduling, the default Quantum time is {}.\nWould you like to change the default Quantum time?\n(y/n): ".format(Quant))
+    if ans.lower() == 'y':
+        Quant = int(input("Please select the desired Quantum time: "))
     print("This is the process data sorted by arrival time: {}".format(process_data)) # Sort by arrival time
     while 1:
-        iteration += 1
-        print("*************NEW ITERATION # {}**************".format(iteration))
         ready_q = []
         normal_q = []
         temp = []
@@ -70,31 +71,71 @@ def pre_priority(num_pprocesses, process_data):
                 temp.extend([process_data[i][0], process_data[i][1], process_data[i][2], process_data[i][3],
                              process_data[i][5]])
                 ready_q.append(temp)
-                print("This is the ready_q: {}".format(ready_q))
                 temp = []
             elif process_data[i][4] == 0:
                 temp.extend([process_data[i][0], process_data[i][1], process_data[i][2], process_data[i][4],
                              process_data[i][5]])
                 normal_q.append(temp)
-                print("This is the normal_q: {}".format(normal_q))
                 temp = []
         if len(ready_q) == 0 and len(normal_q) == 0:
             break
         if len(ready_q) != 0:
             ready_q.sort(key = lambda process : process[2])
-            print("This is the ready Q sorted by priority: {}".format(ready_q))
-            start_time.append(s_time)
-            s_time += 1
-            e_time = s_time
-            exit_time.append(e_time)
-            sequence_of_process.append(ready_q[0][0])
-            for k in range(len(process_data)):
-                if process_data[k][0] == ready_q[0][0]:
-                    break
-            process_data[k][3] -= 1
-            if process_data[k][3] == 0:
-                process_data[k][4] = 1
-                process_data[k].append(e_time)
+            # Loop through ready q. If the priority of the first element is repeated, then add all elements with the same priority to a RR Q
+            RR_Q = check_RR(ready_q)
+            if len(RR_Q) > 1:
+                index = 0
+                while len(RR_Q) > 0:
+                    # If the element we are looking at's CPU time is greater than or equal to the Quant do this operation
+                    if RR_Q[index][3] >= Quant:
+                        s_time += Quant
+                        e_time = s_time
+                        exit_time.append(e_time)
+                        for i in range(Quant):
+                            sequence_of_process.append(RR_Q[index][0])
+                        for k in range(len(process_data)):
+                            if process_data[k][0] == RR_Q[index][0]:
+                                break
+                        process_data[k][3] -= Quant
+                        RR_Q[index][3] = process_data[k][3]
+                        if(process_data[k][3] == 0):
+                            process_data[k][4] = 1
+                            process_data[k].append(e_time)
+                    # If the Remaining CPU time on this element is less than the Quant but not zero, do this operation
+                    elif RR_Q[index][3] < Quant and RR_Q[index][3] > 0:
+                        s_time += RR_Q[index][3]
+                        e_time = s_time
+                        exit_time.append(e_time)
+                        for i in range(RR_Q[index][3]):
+                            sequence_of_process.append(RR_Q[index][0])
+                        for k in range(len(process_data)):
+                            if (process_data[k][0] == RR_Q[index][0]):
+                                break
+                        process_data[k][3] -= RR_Q[index][3]
+                        RR_Q[index][3] = process_data[k][3]
+                        if process_data[k][3] == 0:
+                            process_data[k][4] = 1
+                            process_data[k].append(e_time)
+                    if RR_Q[index][3] == 0:
+                        del RR_Q[index]
+                    # Ensures the index loop around list properly
+                    index += 1
+                    if (index > len(RR_Q) - 1):
+                        index = 0
+            # If there is no need to round robin, then continue with preemptive priority
+            else:
+                start_time.append(s_time)
+                s_time += 1
+                e_time = s_time
+                exit_time.append(e_time)
+                sequence_of_process.append(ready_q[0][0])
+                for k in range(len(process_data)):
+                    if process_data[k][0] == ready_q[0][0]:
+                        break
+                process_data[k][3] -= 1
+                if process_data[k][3] == 0:
+                    process_data[k][4] = 1
+                    process_data[k].append(e_time)
         if len(ready_q) == 0:
             normal_q.sort(key = lambda process : process[1])
             if s_time < normal_q[0][1]:
@@ -110,11 +151,11 @@ def pre_priority(num_pprocesses, process_data):
             process_data[k][3] -= 1
             if process_data[k][3] == 0:
                 process_data[k][4] = 1
-                process_data.append(e_time)
+                process_data[k].append(e_time)
     t_time = calculateTurnaroundTime(process_data)
     w_time = calculateWaitingTime(process_data)
-    print("The total turnaround time is : {}".format(t_time))
-    print("The total waiting time is : {}".format(w_time))
+    print("The average turnaround time is : {}".format(t_time))
+    print("The average waiting time is : {}".format(w_time))
     printData(process_data, t_time, w_time, sequence_of_process)
 
 def calculateTurnaroundTime(process_data):
@@ -129,7 +170,6 @@ def calculateTurnaroundTime(process_data):
 def calculateWaitingTime(process_data):
     total_waiting_time = 0
     for i in range(len(process_data)):
-        print(process_data)
         waiting_time = process_data[i][7] - process_data[i][5]
         total_waiting_time = total_waiting_time + waiting_time
         process_data[i].append(waiting_time)
@@ -146,12 +186,13 @@ def printData(process_data, average_turnaround_time, average_waiting_time, seqeu
     print("Average Turnaroud time: {}".format(average_turnaround_time))
     print("Average Waiting Time: {}".format(average_waiting_time))
     print("Sequence of Processes: {}".format(seqeuence_of_process))
-            
 
-
-
-
-
+def check_RR(ready_q):
+    round_robin_q = []
+    for i in range(len(ready_q)):
+        if ready_q[i][2] == ready_q[0][2]:
+            round_robin_q.append(ready_q[i])
+    return round_robin_q
 
 main()
 
