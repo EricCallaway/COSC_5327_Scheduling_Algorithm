@@ -22,6 +22,7 @@ def main():
     # Pass file into read_file function
     # Return number of processes and list of the processes
     num_processes, list_of_processes = read_file(file_path)
+    input_validation_num_processes(num_processes, list_of_processes)
     pre_priority(num_processes, list_of_processes)
 
 # Reads the file and enumerates the lines. 
@@ -32,7 +33,10 @@ def read_file(file_path):
             for index, line in enumerate(data):
                 if index == 0:
                     num_processes = int(line)
-                elif index < 101:
+                    if num_processes > 100:
+                        sys.exit("Sorry. The limit is 100 processes.\nPlease try again with 100 or less processes.")
+                        break
+                else:
                     p_id = int(index)
                     arrive = int(line[:1])
                     priority = int(line[2:3])
@@ -42,9 +46,7 @@ def read_file(file_path):
                     cpu_time2 = cpu_time
                     state = 0
                     process_data.append([p_id, arrive, priority, cpu_time, state, cpu_time2])
-                else:
-                    sys.exit("Sorry. The limit is 100 processes.\nPlease try again with 100 or less processes.")
-                    break
+                
                 print("Line {}: {}". format(index, line.strip()))
     except FileNotFoundError:
         process_data = None
@@ -193,6 +195,10 @@ def check_RR(ready_q):
         if ready_q[i][2] == ready_q[0][2]:
             round_robin_q.append(ready_q[i])
     return round_robin_q
+
+def input_validation_num_processes(num_processes, process_data):
+    if num_processes != process_data[-1][0]:
+        sys.exit("Invalid input. Number of processes does not equal the actual number of processes entered.")
 
 main()
 
